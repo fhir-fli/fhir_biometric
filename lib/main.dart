@@ -1,55 +1,46 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 
-final LocalAuthentication auth = LocalAuthentication();
+class BiometricAuth {
+  final LocalAuthentication auth = LocalAuthentication();
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
-  final bool canAuthenticate =
-      canAuthenticateWithBiometrics || await auth.isDeviceSupported();
-  final List<BiometricType> biometrics = await auth.getAvailableBiometrics();
-  print(canAuthenticate);
-  print(biometrics);
-  runApp(const MyApp());
-}
+  Future<bool> get canUseBiometrics async => auth.canCheckBiometrics;
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  Future<bool> get isDeviceSupported async => auth.isDeviceSupported();
 
-  @override
-  Widget build(BuildContext context) => const MaterialApp(home: MyHomePage());
-}
+  Future<bool> get biometricsAvailable async =>
+      await canUseBiometrics || await auth.isDeviceSupported();
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  Future<List<BiometricType>> get biometricTypes async =>
+      auth.getAvailableBiometrics();
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final bool didAuthenticate = await auth.authenticate(
-                        localizedReason: 'Please authenticate to login');
-                  } catch (e, s) {
-                    print(e);
-                    print(s);
-                  }
-                },
-                child: const Text('Press to Authenticate'),
-              ),
-            ],
+  Future<String> login() async {
+    if (await biometricsAvailable) {
+      try {
+        final bool success = await auth.authenticate(
+          localizedReason: 'Authenticate using your fingerprint',
+          options: const AuthenticationOptions(
+            stickyAuth: true,
           ),
-        ),
-      );
+        );
+        if (success) {
+          return 'true';
+        } else {
+          return 'Unsuccessful';
+        }
+      } on PlatformException catch (e) {
+        if (e.code == auth_error.notAvailable) {
+          return 'Biometrics not available, please choose another option';
+        } else if (e.code == auth_error.notEnrolled) {
+          return 'Biometrics not enrolled. Please choose another option, '
+              'or enroll Biometrics and then try again.';
+        } else {
+          return 'Error trying to login. $e';
+        }
+      }
+    } else {
+      return 'Biometrics not available';
+    }
+  }
 }
