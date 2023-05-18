@@ -16,8 +16,8 @@ class BiometricAuth {
       auth.getAvailableBiometrics();
 
   Future<String> login() async {
-    if (await biometricsAvailable) {
-      try {
+    try {
+      if (await biometricsAvailable) {
         final bool success = await auth.authenticate(
           localizedReason: 'Authenticate using your fingerprint',
           options: const AuthenticationOptions(
@@ -29,18 +29,20 @@ class BiometricAuth {
         } else {
           return 'Unsuccessful';
         }
-      } on PlatformException catch (e) {
-        if (e.code == auth_error.notAvailable) {
-          return 'Biometrics not available, please choose another option';
-        } else if (e.code == auth_error.notEnrolled) {
-          return 'Biometrics not enrolled. Please choose another option, '
-              'or enroll Biometrics and then try again.';
-        } else {
-          return 'Error trying to login. $e';
-        }
+      } else {
+        return 'Biometrics not available';
       }
-    } else {
-      return 'Biometrics not available';
+    } on PlatformException catch (e) {
+      if (e.code == auth_error.notAvailable) {
+        return 'Biometrics not available, please choose another option';
+      } else if (e.code == auth_error.notEnrolled) {
+        return 'Biometrics not enrolled. Please choose another option, '
+            'or enroll Biometrics and then try again.';
+      } else {
+        return 'Error trying to login. $e';
+      }
+    } catch (e) {
+      return 'Unknown error: $e';
     }
   }
 }
